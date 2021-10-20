@@ -40,43 +40,50 @@ enum FormatState {
 }
 
 fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
-    if template.contains("{}") {
+    if !args.is_empty() && template.contains("{}") {
         use FormatState::*;
+        const ANCHOR: &str = "{}";
+        const ESC: char = '\\';
+        const OPEN: char = '{';
         let mut args = args.into_iter();
         let mut message = String::new();
         let mut state = Normal;
-        for c in template.chars() {
+        let mut chars = template.chars();
+        while let Some(c) = chars.next() {
             match (&state, c) {
-                (Normal, '\\') => state = Escape,
-                (Normal, '{') => state = Started,
+                (Normal, ESC) => state = Escape,
+                (Normal, OPEN) => state = Started,
                 (Normal, c) => message.push(c),
-                (Escape, '\\') => {
+                (Escape, ESC) => {
                     message.push_str("\\\\");
                     state = Normal;
                 },
                 (Escape, '{') => {
-                    message.push('{');
+                    message.push(OPEN);
                     state = Normal;
                 },
                 (Escape, c) => {
-                    message.push('\\');
+                    message.push(ESC);
                     message.push(c);
                     state = Normal;
                 },
                 (Started, '}') => {
-                    message.push_str(match args.next() {
-                        Some(a) => &a,
-                        None => "{}",
-                    });
-                    state = Normal;
+                    if let Some(a) = args.next() {
+                        message.push_str(a);
+                        state = Normal;
+                    } else {
+                        message.push_str(ANCHOR);
+                        chars.for_each(|c| message.push(c));
+                        break;
+                    }
                 },
-                (Started, '{') => message.push('{'),
-                (Started, '\\') => {
-                    message.push('{');
+                (Started, OPEN) => message.push(OPEN),
+                (Started, ESC) => {
+                    message.push(OPEN);
                     state = Escape;
                 },
                 (Started, c) => {
-                    message.push('{');
+                    message.push(OPEN);
                     message.push(c);
                     state = Normal;
                 }
