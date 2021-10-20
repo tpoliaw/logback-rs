@@ -33,60 +33,45 @@ pub struct LogEvent {
     pub mdc: HashMap<String, String>,
 }
 
-enum FormatState {
-    Escape, // We've seen an escape char
-    Started, // We've seen an opening {
-    Normal, // Nothing interesting - normal text
-}
-
 fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
     if !args.is_empty() && template.contains("{}") {
-        use FormatState::*;
         const ANCHOR: &str = "{}";
         const ESC: char = '\\';
         const OPEN: char = '{';
+        const CLOSE: char = '}';
         let mut args = args.into_iter();
         let mut message = String::new();
-        let mut state = Normal;
-        let mut chars = template.chars();
+        let mut chars = template.chars().peekable();
         while let Some(c) = chars.next() {
-            match (&state, c) {
-                (Normal, ESC) => state = Escape,
-                (Normal, OPEN) => state = Started,
-                (Normal, c) => message.push(c),
-                (Escape, ESC) => {
-                    message.push_str("\\\\");
-                    state = Normal;
-                },
-                (Escape, '{') => {
-                    message.push(OPEN);
-                    state = Normal;
-                },
-                (Escape, c) => {
-                    message.push(ESC);
-                    message.push(c);
-                    state = Normal;
-                },
-                (Started, '}') => {
-                    if let Some(a) = args.next() {
-                        message.push_str(a);
-                        state = Normal;
-                    } else {
-                        message.push_str(ANCHOR);
-                        chars.for_each(|c| message.push(c));
-                        break;
-                    }
-                },
-                (Started, OPEN) => message.push(OPEN),
-                (Started, ESC) => {
-                    message.push(OPEN);
-                    state = Escape;
-                },
-                (Started, c) => {
-                    message.push(OPEN);
-                    message.push(c);
-                    state = Normal;
+            match c {
+                ESC => match chars.next() {
+                    Some('{') => {
+                        if chars.peek() != Some(&CLOSE) {
+                            message.push(ESC);
+                        }
+                        message.push(OPEN)
+                    },
+                    Some(c) => {
+                        message.push(ESC);
+                        message.push(c);
+                    },
+                    None => break,
                 }
+                OPEN => match chars.peek() {
+                    Some(&CLOSE) => {
+                        let _ = chars.next(); // drop closing char
+                        if let Some(a) = args.next() {
+                            message.push_str(a);
+                        } else {
+                            message.push_str(ANCHOR);
+                            chars.for_each(|c| message.push(c));
+                            break;
+                        }
+
+                    },
+                    _ => message.push(OPEN),
+                },
+                c => message.push(c),
             }
         }
         Cow::Owned(message)
