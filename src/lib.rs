@@ -170,7 +170,7 @@ pub struct Marker {
 #[derive(Debug, FromJava)]
 pub struct Markers {
     #[jaded(extract(converters::read_list))]
-    markers: Vec<Marker>
+    markers: Vec<Marker>,
 }
 
 impl From<Markers> for Vec<Marker> {
@@ -231,11 +231,7 @@ impl FromStr for LogLevel {
             "i" | "info" => Self::Info,
             "w" | "warn" => Self::Warn,
             "e" | "error" => Self::Error,
-            _ => {
-                return Err(Error::ValueError(
-                    format!("Unknown log level: {}", s).into(),
-                ))
-            }
+            _ => return Err(Error::ValueError(format!("Unknown log level: {}", s))),
         })
     }
 }
@@ -253,7 +249,7 @@ mod converters {
     use jaded::{AnnotationIter, ConversionResult, FromJava};
     use std::{collections::HashMap, hash::Hash};
     pub fn read_i32(anno: &mut AnnotationIter) -> ConversionResult<i32> {
-        Ok(anno.read_i32()?)
+        anno.read_i32()
     }
     pub fn read_list<T>(anno: &mut AnnotationIter) -> ConversionResult<Vec<T>>
     where
@@ -268,11 +264,9 @@ mod converters {
         T: FromJava + Eq + Hash,
         U: FromJava,
     {
-        // println!("Reading ints");
         let mut map = HashMap::new();
         let _ = anno.read_i32()?; // read and discard number of buckets
         let count = anno.read_i32()?;
-        // println!("Reading {} entries", count);
         for _ in 0..count {
             map.insert(anno.read_object_as()?, anno.read_object_as()?);
         }
@@ -281,12 +275,12 @@ mod converters {
 
     #[derive(Debug, FromJava)]
     pub enum Map {
-        #[jaded(class="java.util.Collections$EmptyMap")]
+        #[jaded(class = "java.util.Collections$EmptyMap")]
         Empty,
-        #[jaded(class="java.util.HashMap")]
+        #[jaded(class = "java.util.HashMap")]
         HashMap(#[jaded(extract(read_map))] HashMap<String, String>),
-        #[jaded(class="java.util.Collections$SynchronizedMap")]
-        Sync(#[jaded(field="m", from = "Map")] HashMap<String, String>),
+        #[jaded(class = "java.util.Collections$SynchronizedMap")]
+        Sync(#[jaded(field = "m", from = "Map")] HashMap<String, String>),
     }
     impl From<Map> for HashMap<String, String> {
         fn from(map: Map) -> HashMap<String, String> {
