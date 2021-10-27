@@ -34,29 +34,26 @@ pub struct LogEvent {
 }
 
 fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
+    const ANCHOR: &str = "{}";
+    const ESC: char = '\\';
+    const OPEN: char = '{';
+    const CLOSE: char = '}';
     if !args.is_empty() && template.contains("{}") {
-        const ANCHOR: &str = "{}";
-        const ESC: char = '\\';
-        const OPEN: char = '{';
-        const CLOSE: char = '}';
-        let mut args = args.into_iter();
         let mut message = String::new();
+        let mut args = args.iter();
         let mut chars = template.chars().peekable();
         while let Some(c) = chars.next() {
             match c {
                 ESC => match chars.next() {
-                    Some('{') => {
-                        if chars.peek() != Some(&CLOSE) {
-                            message.push(ESC);
-                        }
-                        message.push(OPEN)
-                    },
+                    Some(OPEN) if chars.peek() == Some(&CLOSE) => message.push(OPEN),
                     Some(c) => {
+                        // If the escape isn't escaping a complete {},
+                        // include the escape in the message
                         message.push(ESC);
                         message.push(c);
-                    },
-                    None => break,
-                }
+                    }
+                    None => message.push(ESC),
+                },
                 OPEN => match chars.peek() {
                     Some(&CLOSE) => {
                         let _ = chars.next(); // drop closing char
@@ -67,8 +64,7 @@ fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
                             chars.for_each(|c| message.push(c));
                             break;
                         }
-
-                    },
+                    }
                     _ => message.push(OPEN),
                 },
                 c => message.push(c),
@@ -82,7 +78,7 @@ fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
 
 impl LogEvent {
     pub fn message(&self) -> Cow<str> {
-        format(&self.template,  &self.arguments)
+        format(&self.template, &self.arguments)
     }
     pub fn stack(&self) -> String {
         match &self.throwable {
@@ -301,4 +297,49 @@ mod converters {
             }
         }
     }
+}
+
+#[test]
+fn test_format() {
+    assert_eq!(format("no anchors", &[]), Cow::Borrowed("no anchors"));
+    assert_eq!(
+        format("single {} anchor", &["central".into()]),
+        Cow::Owned::<str>("single central anchor".into())
+    );
+    assert_eq!(
+        format("unused arg", &["foo".into()]),
+        Cow::Borrowed("unused arg")
+    );
+    assert_eq!(
+        format("unused {} anchor", &[]),
+        Cow::Borrowed("unused {} anchor")
+    );
+    assert_eq!(
+        format(r"escaped escape \\{}", &["foo".into()]),
+        Cow::Owned::<str>(r"escaped escape \\foo".into())
+    );
+    assert_eq!(
+        format(r"Partially escaped \{ anchor", &[]),
+        Cow::Borrowed(r"Partially escaped \{ anchor".into())
+    );
+    assert_eq!(
+        format(r"Partially escaped \{ anchor with {}", &["arg".into()]),
+        Cow::Owned::<str>(r"Partially escaped \{ anchor with arg".into())
+    );
+    assert_eq!(
+        format(r"End with {} escape\", &["final".into()]),
+        Cow::Owned::<str>(r"End with final escape\".into())
+    );
+    assert_eq!(
+        format("Too {} arguments {}", &["few".into()]),
+        Cow::Borrowed("Too few arguments {}")
+    );
+    assert_eq!(
+        format("Too {} arguments", &["many".into(), "ignored".into()]),
+        Cow::Borrowed("Too many arguments")
+    );
+    assert_eq!(
+        format("Not {} an {anchor}", &["really".into()]),
+        Cow::Owned::<str>("Not really an {anchor}".into())
+    );
 }
