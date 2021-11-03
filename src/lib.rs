@@ -38,6 +38,8 @@ fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
     const ESC: char = '\\';
     const OPEN: char = '{';
     const CLOSE: char = '}';
+    const NULL_STRING: &str = "NULL_ARGUMENT_ARRAY_ELEMENT";
+    const NULL: &str = "null";
     if !args.is_empty() && template.contains("{}") {
         let mut message = String::new();
         let mut args = args.iter();
@@ -57,12 +59,14 @@ fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
                 OPEN => match chars.peek() {
                     Some(&CLOSE) => {
                         let _ = chars.next(); // drop closing char
-                        if let Some(a) = args.next() {
-                            message.push_str(a);
-                        } else {
-                            message.push_str(ANCHOR);
-                            chars.for_each(|c| message.push(c));
-                            break;
+                        match args.next().map(String::as_str) {
+                            Some(NULL_STRING) => message.push_str(NULL),
+                            Some(a) => message.push_str(a),
+                            None => {
+                                message.push_str(ANCHOR);
+                                chars.for_each(|c| message.push(c));
+                                break;
+                            }
                         }
                     }
                     _ => message.push(OPEN),
