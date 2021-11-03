@@ -1,5 +1,6 @@
 use gumdrop::Options;
 use std::{fs::File, io::Read, net::TcpStream, path::PathBuf, thread, time::Duration};
+use yansi::{Color, Style};
 
 use logback::LogLevel;
 
@@ -23,13 +24,23 @@ pub fn main() {
     let mut reader = jaded::Parser::new(src).expect("failed to create parser");
 
     let mut count = 0;
+    let threshold = command.level.unwrap_or(LogLevel::Info);
     loop {
-        let evt = reader.read().unwrap();
         use jaded::FromJava;
+        let evt = reader.read().unwrap();
+
         match logback::LogEvent::from_value(evt.value()) {
             Ok(evt) => {
-                if evt.level >= LogLevel::Info {
-                    println!("{}", evt.message());
+                if evt.level >= threshold {
+                    let style = match evt.level {
+                        LogLevel::Trace => Style::default().dimmed(),
+                        LogLevel::Debug => Style::default(),
+                        LogLevel::Info => Style::default().bold(),
+                        LogLevel::Warn => Style::new(Color::Yellow),
+                        LogLevel::Error => Style::new(Color::Red),
+                        _ => Style::default(),
+                    };
+                    println!("{}", style.paint(evt.message()));
                 }
                 count += 1;
                 if let Some(_) = &evt.marker {
@@ -53,4 +64,5 @@ struct Command {
     #[options(help = "Server port broadcasting log messages - default: 6750")]
     port: Option<u16>,
     startup: bool,
+    level: Option<LogLevel>,
 }

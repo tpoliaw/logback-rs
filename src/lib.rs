@@ -10,6 +10,14 @@ pub enum Error {
     ValueError(String),
 }
 
+impl Display for Error {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::ValueError(msg) => write!(fmt, "{}", msg),
+        }
+    }
+}
+
 #[derive(Debug, FromJava)]
 #[jaded(rename)]
 pub struct LogEvent {
