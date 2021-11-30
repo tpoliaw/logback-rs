@@ -27,8 +27,13 @@ pub fn main() {
     let threshold = command.level.unwrap_or(LogLevel::Info);
     loop {
         use jaded::FromJava;
-        let evt = reader.read().unwrap();
-
+        let evt = match reader.read() {
+            Ok(evt) => evt,
+            Err(e) => {
+                println!("Server read error: {}", e);
+                return;
+            }
+        };
         match logback::LogEvent::from_value(evt.value()) {
             Ok(evt) => {
                 if evt.level >= threshold {
