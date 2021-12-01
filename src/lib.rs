@@ -5,6 +5,7 @@ use std::{
     fmt::{Display, Error as FmtError, Formatter},
     str::FromStr,
 };
+use chrono::{offset::Local, DateTime, offset::TimeZone};
 
 pub enum Error {
     ValueError(String),
@@ -153,6 +154,11 @@ fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
 impl LogEvent {
     pub fn message(&self) -> Cow<str> {
         format(&self.template, &self.arguments)
+    }
+    pub fn time(&self) -> DateTime<Local> {
+        let seconds = self.time_stamp / 1_000;
+        let nanos = 1_000 * self.time_stamp % 1_000;
+        Local.timestamp(seconds, nanos as u32)
     }
     pub fn stack(&self) -> String {
         match &self.throwable {
