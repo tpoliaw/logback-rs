@@ -24,7 +24,7 @@ pub struct LogEvent {
     #[jaded(field = "message")]
     template: String,
     thread_name: String,
-    pub logger_name: String,
+    pub logger_name: Source,
     #[jaded(field = "loggerContextVO")]
     pub context: LogContext,
     #[jaded(extract(converters::read_i32), from = "i32")]
@@ -39,6 +39,68 @@ pub struct LogEvent {
     time_stamp: i64,
     #[jaded(field = "mdcPropertyMap", from = "converters::Map")]
     pub mdc: HashMap<String, String>,
+}
+
+#[derive(Debug, FromJava)]
+#[jaded(from = "String")]
+pub struct Source(String);
+
+impl From<String> for Source {
+    fn from(src: String) -> Self {
+        Self(src)
+    }
+}
+
+impl std::fmt::Display for Source {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match fmt.precision() {
+            Some(w) => write!(fmt, "{}", self.reduced(w)),
+            None => self.0.fmt(fmt),
+        }
+    }
+}
+
+impl Source {
+    fn reduced(&self, target: usize) -> Cow<str> {
+        if self.0.len() <= target {
+            Cow::Borrowed(&self.0)
+        } else {
+            let len = self.0.len();
+            let mut cut = 0;
+            let mut parts = self.0.split('.').collect::<Vec<_>>();
+            let mut res = vec![];
+            let class = parts.pop().unwrap(); // must be present as self.0 has length
+            for part in parts.into_iter() {
+                if len - cut > target {
+                    res.push(part.split_at(1).0);
+                    cut += part.len() - 1;
+                } else {
+                    res.push(part);
+                }
+            }
+            res.push(class);
+            Cow::Owned(res.join("."))
+        }
+    }
+}
+
+#[test]
+fn test_source_reduction() {
+    let s = Source("uk.ac.diamond.daq.persistence.jythonshelf".into());
+    assert_eq!(s.reduced(20), "u.a.d.d.p.jythonshelf");
+    assert_eq!(s.reduced(30), "u.a.d.d.p.jythonshelf");
+    assert_eq!(s.reduced(32), "u.a.d.d.persistence.jythonshelf");
+    assert_eq!(s.reduced(33), "u.a.d.daq.persistence.jythonshelf");
+    assert_eq!(s.reduced(39), "u.a.diamond.daq.persistence.jythonshelf");
+    assert_eq!(s.reduced(40), "u.ac.diamond.daq.persistence.jythonshelf");
+    assert_eq!(s.reduced(41), "uk.ac.diamond.daq.persistence.jythonshelf");
+    assert_eq!(s.reduced(50), "uk.ac.diamond.daq.persistence.jythonshelf");
+
+    let s = Source("gda.device.scannable.ScannableMotor".into());
+    assert_eq!(s.reduced(30), "g.d.scannable.ScannableMotor");
+
+    let s = Source("gdascripts.scan.process.ScanDataProcessorResult.ScanDataProcessorResult".into());
+    assert_eq!(s.reduced(30), "g.s.p.S.ScanDataProcessorResult");
 }
 
 fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {

@@ -45,7 +45,7 @@ pub fn main() {
                         LogLevel::Error => Style::new(Color::Red),
                         _ => Style::default(),
                     };
-                    println!("{} - {}", evt.logger_name, style.paint(evt.message()));
+                    println!("{:.40} - {}", evt.logger_name, style.paint(evt.message()));
                 }
                 count += 1;
                 if let Some(_) = &evt.marker {
