@@ -28,7 +28,7 @@ pub struct LogEvent {
     pub logger_name: Source,
     #[jaded(field = "loggerContextVO")]
     pub context: LogContext,
-    #[jaded(extract(converters::read_i32), from = "i32")]
+    #[jaded(extract(converters::read_i32))]
     pub level: LogLevel,
     #[jaded(extract(converters::read_list))]
     arguments: Vec<String>,
