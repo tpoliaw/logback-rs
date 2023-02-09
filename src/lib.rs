@@ -8,13 +8,13 @@ use std::{
 use chrono::{offset::Local, DateTime, offset::TimeZone};
 
 pub enum Error {
-    ValueError(String),
+    UnknownLogLevel(String),
 }
 
 impl Display for Error {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::ValueError(msg) => write!(fmt, "{}", msg),
+            Self::UnknownLogLevel(msg) => write!(fmt, "Unrecognised log level: {msg:?}"),
         }
     }
 }
@@ -309,7 +309,7 @@ impl FromStr for LogLevel {
             "i" | "info" => Self::Info,
             "w" | "warn" => Self::Warn,
             "e" | "error" => Self::Error,
-            _ => return Err(Error::ValueError(format!("Unknown log level: {}", s))),
+            _ => return Err(Error::UnknownLogLevel(s.into())),
         })
     }
 }
