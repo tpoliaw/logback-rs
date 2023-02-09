@@ -156,9 +156,7 @@ impl LogEvent {
         format(&self.template, &self.arguments)
     }
     pub fn time(&self) -> DateTime<Local> {
-        let seconds = self.time_stamp / 1_000;
-        let nanos = 1_000 * self.time_stamp % 1_000;
-        Local.timestamp(seconds, nanos as u32)
+        Local.timestamp_millis_opt(self.time_stamp).single().unwrap()
     }
     pub fn stack(&self) -> String {
         match &self.throwable {
