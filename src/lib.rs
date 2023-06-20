@@ -171,8 +171,8 @@ impl LogEvent {
 pub struct LogContext {
     birth_time: i64,
     name: String,
-    #[jaded(field = "propertyMap")]
-    pub properties: PropertyMap,
+    #[jaded(field = "propertyMap", from = "PropertyMap")]
+    pub properties: HashMap<String, String>,
 }
 
 #[derive(Debug, FromJava)]
@@ -315,12 +315,15 @@ impl FromStr for LogLevel {
 }
 
 #[derive(Debug, FromJava)]
-#[jaded(rename)]
-pub struct PropertyMap {
-    threshold: i32,
-    load_factor: f32,
+struct PropertyMap {
     #[jaded(extract(converters::read_map))]
     pub values: HashMap<String, String>,
+}
+
+impl From<PropertyMap> for HashMap<String, String> {
+    fn from(value: PropertyMap) -> Self {
+        value.values
+    }
 }
 
 mod converters {
