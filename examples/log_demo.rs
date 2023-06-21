@@ -47,6 +47,9 @@ pub fn main() {
                         evt.logger_name,
                         style.paint(evt.message())
                     );
+                    if let Some(ex) = evt.throwable {
+                        println!("{}", ex.format_trace());
+                    }
                 }
                 count += 1;
                 if let Some(_) = &evt.marker {
