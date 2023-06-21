@@ -3,7 +3,7 @@ use std::{fs::File, io::Read, net::TcpStream, path::PathBuf, thread, time::Durat
 use yansi::{Color, Style};
 
 use logback::LogLevel;
- 
+
 pub fn main() {
     let command = Command::parse_args_default_or_exit();
 
@@ -25,6 +25,7 @@ pub fn main() {
 
     let mut count = 0;
     let threshold = command.level.unwrap_or(LogLevel::Info);
+
     loop {
         match reader.read_as::<logback::LogEvent>() {
             Ok(evt) => {
@@ -38,14 +39,21 @@ pub fn main() {
                         _ => Style::default(),
                     };
                     let dt = evt.time();
-                    println!("{} {} {} {:.40} - {}", dt.date_naive(), dt.time(), evt.level, evt.logger_name, style.paint(evt.message()));
+                    println!(
+                        "{} {} {} {:.40} - {}",
+                        dt.date(),
+                        dt.time(),
+                        evt.level,
+                        evt.logger_name,
+                        style.paint(evt.message())
+                    );
                 }
                 count += 1;
                 if let Some(_) = &evt.marker {
                     println!("Read {} messages", count);
                     break;
                 }
-            },
+            }
             Err(e) => {
                 println!("{}", e);
             }
