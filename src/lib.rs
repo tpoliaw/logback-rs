@@ -5,7 +5,7 @@ use std::{
     fmt::{Display, Error as FmtError, Formatter},
     str::FromStr,
 };
-use chrono::{offset::Local, DateTime, offset::TimeZone};
+use time::{OffsetDateTime, PrimitiveDateTime};
 
 pub enum Error {
     UnknownLogLevel(String),
@@ -155,8 +155,9 @@ impl LogEvent {
     pub fn message(&self) -> Cow<str> {
         format(&self.template, &self.arguments)
     }
-    pub fn time(&self) -> DateTime<Local> {
-        Local.timestamp_millis_opt(self.time_stamp).single().unwrap()
+    pub fn time(&self) -> OffsetDateTime {
+        let nanos = 1_000_000 * self.time_stamp as i128;
+        OffsetDateTime::from_unix_timestamp_nanos(nanos).unwrap()
     }
     pub fn stack(&self) -> String {
         match &self.throwable {
