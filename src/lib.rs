@@ -104,56 +104,9 @@ fn test_source_reduction() {
     assert_eq!(s.reduced(30), "g.s.p.S.ScanDataProcessorResult");
 }
 
-fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
-    const ANCHOR: &str = "{}";
-    const ESC: char = '\\';
-    const OPEN: char = '{';
-    const CLOSE: char = '}';
-    const NULL_STRING: &str = "NULL_ARGUMENT_ARRAY_ELEMENT";
-    const NULL: &str = "null";
-    if !args.is_empty() && template.contains("{}") {
-        let mut message = String::new();
-        let mut args = args.iter();
-        let mut chars = template.chars().peekable();
-        while let Some(c) = chars.next() {
-            match c {
-                ESC => match chars.next() {
-                    Some(OPEN) if chars.peek() == Some(&CLOSE) => message.push(OPEN),
-                    Some(c) => {
-                        // If the escape isn't escaping a complete {},
-                        // include the escape in the message
-                        message.push(ESC);
-                        message.push(c);
-                    }
-                    None => message.push(ESC),
-                },
-                OPEN => match chars.peek() {
-                    Some(&CLOSE) => {
-                        let _ = chars.next(); // drop closing char
-                        match args.next().map(String::as_str) {
-                            Some(NULL_STRING) => message.push_str(NULL),
-                            Some(a) => message.push_str(a),
-                            None => {
-                                message.push_str(ANCHOR);
-                                chars.for_each(|c| message.push(c));
-                                break;
-                            }
-                        }
-                    }
-                    _ => message.push(OPEN),
-                },
-                c => message.push(c),
-            }
-        }
-        Cow::Owned(message)
-    } else {
-        Cow::Borrowed(template)
-    }
-}
-
 impl LogEvent {
     pub fn message(&self) -> Cow<str> {
-        format(&self.template, &self.arguments)
+        Self::format(&self.template, &self.arguments)
     }
     pub fn time(&self) -> OffsetDateTime {
         let nanos = 1_000_000 * self.time_stamp as i128;
@@ -163,6 +116,52 @@ impl LogEvent {
         match &self.throwable {
             Some(t) => format!("\n{}{}", t.class_name, t.trace()),
             None => format!(""),
+        }
+    }
+    fn format<'a>(template: &'a str, args: &[String]) -> Cow<'a, str> {
+        const ANCHOR: &str = "{}";
+        const ESC: char = '\\';
+        const OPEN: char = '{';
+        const CLOSE: char = '}';
+        const NULL_STRING: &str = "NULL_ARGUMENT_ARRAY_ELEMENT";
+        const NULL: &str = "null";
+        if !args.is_empty() && template.contains("{}") {
+            let mut message = String::new();
+            let mut args = args.iter();
+            let mut chars = template.chars().peekable();
+            while let Some(c) = chars.next() {
+                match c {
+                    ESC => match chars.next() {
+                        Some(OPEN) if chars.peek() == Some(&CLOSE) => message.push(OPEN),
+                        Some(c) => {
+                            // If the escape isn't escaping a complete {},
+                            // include the escape in the message
+                            message.push(ESC);
+                            message.push(c);
+                        }
+                        None => message.push(ESC),
+                    },
+                    OPEN => match chars.peek() {
+                        Some(&CLOSE) => {
+                            let _ = chars.next(); // drop closing char
+                            match args.next().map(String::as_str) {
+                                Some(NULL_STRING) => message.push_str(NULL),
+                                Some(a) => message.push_str(a),
+                                None => {
+                                    message.push_str(ANCHOR);
+                                    chars.for_each(|c| message.push(c));
+                                    break;
+                                }
+                            }
+                        }
+                        _ => message.push(OPEN),
+                    },
+                    c => message.push(c),
+                }
+            }
+            Cow::Owned(message)
+        } else {
+            Cow::Borrowed(template)
         }
     }
 }
